@@ -7,6 +7,9 @@ library("tidyr")
 library("dplyr")
 library("readr")
 
+source(file = "analyze_reviews.R")
+
+# data loading
 reviews_data <- read_csv(
   file = './data/reviews.csv',
   col_types = cols(
@@ -16,17 +19,95 @@ reviews_data <- read_csv(
   )
 )
 
+classified <- read_csv(
+  file = './data/classified.csv',
+  col_types = cols(
+    .default = col_character()
+  )
+)
+
+# data transformation
+years_list <- 2015:2018
+
+n_cat <- max(sapply(reviews_data$primaryCategories, function(x) str_count(x, ",")))
+
+col_names <- paste0("X__", 1:(n_cat + 1))
+
+reviews_data <- reviews_data %>% 
+  mutate(id = 1:nrow(.),
+         year = lubridate::year(date)) %>% 
+  filter(year %in% years_list) %>% 
+  separate(
+    primaryCategories, 
+    sep = ",", 
+    into = col_names
+  ) %>% 
+  gather(aux, category, col_names) %>% 
+  filter(!is.na(category))
+
+# WARNING: uncomment only for testing!!
+reviews_data <- reviews_data %>% 
+  sample_n(size = 1000)
+
+# helpers for inputs
+primary_categories <- reviews_data$category %>% unique() %>% sort()
+
 ui <- fluidPage(
   # to add a bootstrap
-  themeSelector(),
+  # themeSelector(),
+  theme = shinytheme("paper"),
+  
+  # app title
+  titlePanel("Amazon Reviews Analyzer"),
   
   sidebarLayout(
     
     sidebarPanel(
-      # here goes the inputs
+      
+      # select years to be included in the analysis
+      checkboxGroupInput(
+        inputId = "years",
+        label = "Select years:",
+        choices = years_list,
+        selected = years_list
+      ),
+      
+      # select the primary categories
+      selectInput(
+        inputId = "pcategories",
+        label = "Select primary category(ies):",
+        choices = primary_categories,
+        multiple = TRUE,
+        selected = primary_categories[1]
+      ),
+      
+      # number of stars
+      sliderInput(
+        inputId = "stars",
+        label = "Select ratings:",
+        min = 1,
+        max = 5,
+        value = c(1, 5),
+        step = 1,
+        dragRange = TRUE,
+        ticks = FALSE
+      ),
+      
+      # words to be excluded
+      textInput(
+        inputId = "non_words",
+        label = "Words to be excluded:", 
+        placeholder = "Insert the words that you'd like to exclude, separated by commas"
+      ),
+      
+      # analyze button
+      actionButton(
+        inputId = "go", 
+        label = "Analyze")
     ),
     
     mainPanel(
+      
       tabsetPanel(
         tabPanel(
           title = "Wordcloud",
@@ -49,6 +130,50 @@ ui <- fluidPage(
 
 # define server function
 server <- function(input, output, session) {
+  
+  reviews_analysis <- eventReactive(input$go, {
+    
+    if (!is.null(input$non_words)) {
+      non_words <- str_trim(unlist(strsplit(input$non_words, ",")))
+    } 
+    
+    else { 
+      non_words <- NULL
+    }
+    
+    reviews_data %>%
+      filter(year %in% input$years,
+             category %in% input$pcategories,
+             rating %in% input$stars) %>% 
+      analyze_reviews(
+        sentiments = classified,
+        non_words = non_words
+      )
+  })
+  
+  output$wordcloud <- renderPlot({
+    
+    reviews_analysis()$top_words %>%
+      with(wordcloud(words = word, freq = n, random.order = FALSE,
+                     scale = c(3, .5), rot.per = .30,
+                     min.freq = 2, max.words = 100,
+                     colors = gray(c(.1, .6, .9))))
+    
+  })
+  
+  # y_max <- max(top_words$n)
+  
+  # barplot <- ggplot(data = top_words %>% 
+  #                       top_n(n = 15, wt = n),
+  #                   aes(x = reorder(word, n), y = n)) + 
+  #     geom_bar(stat = "identity", fill = "#18A9FF") +
+  #     geom_text(aes(label = percent(n / n_reviews, 2)), 
+  #               hjust = -.05, size = 5, fontface = "bold") +
+  #     scale_y_continuous(limits = c(0, y_max + 5)) +
+  #     labs(x = "Word", y = "Frequency",
+  #          subtitle = paste0(comma(n_reviews), " reviews")) +
+  #     coord_flip() + 
+  #     theme_minimal(base_size = 14)
   
 }
 
