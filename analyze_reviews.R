@@ -3,7 +3,6 @@ analyze_reviews <- function(reviews_data, sentiments, non_words = NULL, min = 3L
     
     library("tidyr")
     library("dplyr")
-    library("ggplot2")
     library("tm")
     library("SnowballC")
     library("wordcloud")
@@ -32,9 +31,8 @@ analyze_reviews <- function(reviews_data, sentiments, non_words = NULL, min = 3L
     }
     
     cleaned <- reviews_data %>% 
-        mutate(id = 1:nrow(.),
-               # split reviews into sentences
-               review := str_split(string = review, 
+        # split reviews into sentences
+        mutate(review := str_split(string = review, 
                                    pattern = fixed("."))) %>% 
         unnest(review) %>% 
         mutate(review = clean_words(review)) %>% 
@@ -90,29 +88,14 @@ analyze_reviews <- function(reviews_data, sentiments, non_words = NULL, min = 3L
         nrow()
     
     top_words <- cleaned %>% 
-        count(word, sort = TRUE) %>% 
-        mutate(wt = n / n_reviews) %>%  
-        filter(wt >= 0.01)
-    
-    y_max <- max(top_words$n)
-    
-    # barplot <- ggplot(data = top_words %>% 
-    #                       top_n(n = 15, wt = n),
-    #                   aes(x = reorder(word, n), y = n)) + 
-    #     geom_bar(stat = "identity", fill = "#18A9FF") +
-    #     geom_text(aes(label = percent(n / n_reviews, 2)), 
-    #               hjust = -.05, size = 5, fontface = "bold") +
-    #     scale_y_continuous(limits = c(0, y_max + 5)) +
-    #     labs(x = "Word", y = "Frequency",
-    #          subtitle = paste0(comma(n_reviews), " reviews")) +
-    #     coord_flip() + 
-    #     theme_minimal(base_size = 14)
+        count(category, rating, word, sort = TRUE) 
+        # mutate(wt = n / n_reviews) %>%  
+        # filter(wt >= 0.01)
     
     res <- list(
         n_reviews = n_reviews,
         polarity = polarity,
         top_words = top_words
-        # barplot = barplot
     )
     
     return(res)
