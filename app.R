@@ -8,6 +8,9 @@ library("dplyr")
 library("readr")
 
 source(file = "analyze_reviews.R")
+source(file = "utils.R") # ggplot custom theme
+
+my_pal <- c("#f72585", "#b5179e", "#7209b7", "#480ca8", "#3f37c9", "#4361ee", "#4895ef", "#4cc9f0")
 
 # data loading
 reviews_data <- read_csv(
@@ -46,8 +49,8 @@ reviews_data <- reviews_data %>%
   filter(!is.na(category))
 
 # WARNING: uncomment only for testing!!
-reviews_data <- reviews_data %>% 
-  sample_n(size = 1000)
+# reviews_data <- reviews_data %>% 
+#   sample_n(size = 1000)
 
 # helpers for inputs
 primary_categories <- reviews_data$category %>% unique() %>% sort()
@@ -115,12 +118,12 @@ ui <- fluidPage(
         ),
         
         tabPanel(
-          title = "Top words",
+          title = "Analysis by Word",
           plotOutput(outputId = "top_words")
         ),
         
         tabPanel(
-          title = "Polarity",
+          title = "Analysis by Review",
           plotOutput(outputId = "polarity")
         )
       )
@@ -136,7 +139,6 @@ server <- function(input, output, session) {
     if (!is.null(input$non_words)) {
       non_words <- str_trim(unlist(strsplit(input$non_words, ",")))
     } 
-    
     else { 
       non_words <- NULL
     }
@@ -154,27 +156,62 @@ server <- function(input, output, session) {
   output$wordcloud <- renderPlot({
     
     reviews_analysis()$top_words %>%
-      with(wordcloud(words = word, freq = n, random.order = FALSE,
-                     scale = c(3, .5), rot.per = .30,
-                     min.freq = 2, max.words = 100,
-                     colors = gray(c(.1, .6, .9))))
+      with(
+        wordcloud(
+          words = word, 
+          freq = n, 
+          random.order = FALSE,
+          scale = c(3, .5), 
+          rot.per = .30,
+          min.freq = 2, 
+          max.words = 150,
+          colors = rev(my_pal)
+        )
+      )
     
   })
   
-  # y_max <- max(top_words$n)
-  
-  # barplot <- ggplot(data = top_words %>% 
-  #                       top_n(n = 15, wt = n),
-  #                   aes(x = reorder(word, n), y = n)) + 
-  #     geom_bar(stat = "identity", fill = "#18A9FF") +
-  #     geom_text(aes(label = percent(n / n_reviews, 2)), 
-  #               hjust = -.05, size = 5, fontface = "bold") +
-  #     scale_y_continuous(limits = c(0, y_max + 5)) +
-  #     labs(x = "Word", y = "Frequency",
-  #          subtitle = paste0(comma(n_reviews), " reviews")) +
-  #     coord_flip() + 
-  #     theme_minimal(base_size = 14)
-  
+  output$top_words <- renderPlot({
+    
+    # uncomment only for testing!!
+    # analyzed <- reviews_data %>%
+    #   analyze_reviews(
+    #     sentiments = classified,
+    #     non_words = NULL
+    #   )
+    
+    n_reviews <- reviews_analysis()$n_reviews
+    # n_reviews <- analyzed$n_reviews
+    
+    reviews_analysis()$polarity_words %>%
+    # analyzed$polarity_words %>%
+      group_by(category, rating) %>% 
+      top_n(n = 5, wt = n_reviews) %>% 
+      ggplot(aes(
+        y = word, 
+        x = elaboration,
+        size = n_reviews,
+        color = mean_polarity
+      )) +
+      geom_point() +
+      facet_grid(
+        facets = category ~ rating, 
+        scales = "free_y"
+        ) +
+      scale_color_gradientn(
+        colours = my_pal,
+        breaks = c(-0.5, 0, 0.5),
+        labels = c("negative","neutral","positive"),
+        limits = c(-0.5, 0.5),
+        name = "Overall sentiment"
+        ) +
+      labs(x = "Elaboration\n(average number of words used in review)",
+           y = "",
+           title = "Sentiment & Elaboration Analysis by Category",
+           subtitle = paste0("Total No. of Reviews: ", n_reviews)) +
+      my_theme
+    
+  })
 }
 
 # run the application
