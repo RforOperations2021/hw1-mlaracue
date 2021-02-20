@@ -122,7 +122,7 @@ ui <- fluidPage(
         
         tabPanel(
           title = "Analysis by Word",
-          plotOutput(outputId = "pwords")
+          plotOutput(outputId = "pwords", width = 800, height = 600)
         ),
         
         tabPanel(
@@ -189,35 +189,29 @@ server <- function(input, output, session) {
     
     data <- reviews_analysis()$polarity_words %>%
       # analyzed$polarity_words %>%
-      mutate(class = case_when(
-        polarity > 0.5 ~ "positive",
-        polarity < 0.5 ~ "negative",
-        TRUE ~ 'neutral')
-      ) %>% 
-      group_by(class) %>% 
-      top_n(n = 5, wt = n_reviews)
+      group_by(class, category, rating) %>% 
+      top_n(n = 3, wt = n_reviews)
     
     n_reviews <- reviews_analysis()$n_reviews
-    # n_reviews <- analyzed$n_reviews
     
     ggplot(data, 
            aes(
              y = word, 
              x = elaboration,
              size = n_reviews,
-             color = mean_polarity
+             color = class
            )) +
       geom_point() +
       facet_grid(
         facets = category ~ rating, 
         scales = "free_y"
       ) +
-      scale_color_gradientn(
-        colours = my_pal,
-        breaks = c(-0.5, 0, 0.5),
-        labels = c("negative","neutral","positive"),
-        limits = c(-0.5, 0.5),
-        name = "Overall sentiment"
+      scale_color_manual(
+        values = c("negative" = my_pal[1],
+                   "neutral" = my_pal[4],
+                   "positive" = my_pal[8]),
+        limits = c("negative", "neutral", "positive"),
+        name = "Sentiment"
       ) +
       labs(x = "Elaboration\n(average number of words used in review)",
            y = "",
