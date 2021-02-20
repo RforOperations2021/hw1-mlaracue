@@ -76,12 +76,13 @@ analyze_reviews <- function(reviews_data, sentiments, non_words = NULL, min = 3L
     )
   
   polarity_reviews <- cleaned %>%
-    group_by(id) %>%
+    group_by(date, id) %>%
     filter(n() >= min) %>% 
-    summarise(n = n(),
-              polarity = sum(score) / n) %>%
+    summarise(n_words = n(),
+              polarity = sum(score) / n_words,
+              .groups = 'drop') %>%
     ungroup() %>%
-    mutate(writingDegree = n / mean(n))
+    mutate(elaboration = n_words / mean(n_words))
   
   polarity_words <- cleaned %>%
     group_by(id) %>%
@@ -91,7 +92,8 @@ analyze_reviews <- function(reviews_data, sentiments, non_words = NULL, min = 3L
     group_by(category, rating, word) %>% 
     summarise(mean_polarity = median(polarity),
               elaboration = mean(n_words),
-              n_reviews = n()) %>% 
+              n_reviews = n(),
+              .groups = 'drop') %>% 
     filter(n_reviews > min)
   
   n_reviews <- cleaned %>% 
