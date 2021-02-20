@@ -20,7 +20,9 @@ This visualization aims to compare the sentiment that is associated to a word (s
 #### Analysis by Review
 This visualization aims to spot, at a glance, potential patterns of polarities and elaboration of reviews over time. By hovering over the graph, users can select points and detailed information will be desplayed on the table below the graph. Besides, the app offers the possibility to download the "brushed" points into a csv file.  
 
-## Data Sources
+## Deployment
+
+The app can be found on: https://mlaracue.shinyapps.io/amazon-reviews-analyzer/## Data Sources
 
 ### Amazon Reviews
 *./data/reviews_data.csv*
@@ -72,8 +74,4 @@ The `classified.csv` dataset has 6,769 rows and two columns: `word` and `class` 
 
 ## Dependencies
 
-All R dependencies can be found in the [requirements.txt](https://https://github.com/RforOperations2021/hw1-mlaracue/blob/main/requirements.txt) file.
-
-## Deployment
-
-The app can be found on [shinyapps.io](hhttps://mlaracue.shinyapps.io/amazon-reviews-analyzer/)
+All R dependencies can be found in the [requirements.txt](https://github.com/RforOperations2021/hw1-mlaracue/blob/main/requirements.txt) file.
