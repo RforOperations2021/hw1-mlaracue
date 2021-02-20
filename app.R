@@ -61,7 +61,7 @@ primary_categories <- reviews_data %>%
 ui <- fluidPage(
   # to add a bootstrap
   # themeSelector(),
-  theme = shinytheme("paper"),
+  theme = shinytheme("flatly"),
   
   # app title
   titlePanel("Amazon Reviews Analyzer"),
@@ -109,7 +109,13 @@ ui <- fluidPage(
       # analyze button
       actionButton(
         inputId = "go", 
-        label = "Analyze")
+        label = "Analyze"
+      ),
+      
+      downloadButton(
+        outputId = 'download_selection', 
+        label = "Download data"
+      ),
     ),
     
     mainPanel(
@@ -117,7 +123,16 @@ ui <- fluidPage(
       tabsetPanel(
         tabPanel(
           title = "Wordcloud",
-          plotOutput(outputId = "wordcloud")
+          h3("Words in negative ratings (1 & 2)"),
+          plotOutput(outputId = "wcnegative"),
+          br(),
+          
+          h3("Words in neutral ratings (3)"),
+          plotOutput(outputId = "wcneutral"),
+          br(),
+          
+          h3("Words in positive ratings (4 & 5)"),
+          plotOutput(outputId = "wcpositive")
         ),
         
         tabPanel(
@@ -127,7 +142,12 @@ ui <- fluidPage(
         
         tabPanel(
           title = "Analysis by Review",
-          plotOutput(outputId = "previews", brush = 'user_selection'),
+          plotOutput(
+            outputId = "previews", 
+            width = 800, 
+            height = 600, 
+            brush = 'user_selection'
+          ),
           DT::dataTableOutput(outputId = "table_reviews")
         )
       )
@@ -160,9 +180,10 @@ server <- function(input, output, session) {
       )
   })
   
-  output$wordcloud <- renderPlot({
+  output$wcnegative <- renderPlot({
     
     reviews_analysis()$top_words %>%
+      filter(rating < 3) %>% 
       with(
         wordcloud(
           words = word, 
@@ -172,9 +193,47 @@ server <- function(input, output, session) {
           rot.per = .30,
           min.freq = 2, 
           max.words = 150,
-          colors = rev(my_pal)
+          colors = my_pal[1:3]
         )
       )
+    
+  })
+  
+  output$wcneutral <- renderPlot({
+    
+    reviews_analysis()$top_words %>%
+      filter(rating == 3) %>% 
+    with(
+      wordcloud(
+        words = word, 
+        freq = n, 
+        random.order = FALSE,
+        scale = c(3, .5), 
+        rot.per = .30,
+        min.freq = 2, 
+        max.words = 150,
+        colors = c(gray(.9), my_pal[4:5])
+      )
+    )
+    
+  })
+  
+  output$wcpositive <- renderPlot({
+    
+    reviews_analysis()$top_words %>%
+      filter(rating > 3) %>% 
+    with(
+      wordcloud(
+        words = word, 
+        freq = n, 
+        random.order = FALSE,
+        scale = c(3, .5), 
+        rot.per = .30,
+        min.freq = 2, 
+        max.words = 150,
+        colors = my_pal[6:8]
+      )
+    )
     
   })
   
@@ -221,18 +280,35 @@ server <- function(input, output, session) {
     
   })
   
+  polarity_reviews <- reactive({
+    
+    req(input$pcategories)
+    reviews_analysis()$polarity_reviews %>% 
+      # analyzed$polarity_reviews %>% 
+      left_join(reviews_data, by = c('id', 'date')) %>%
+      filter(category %in% input$pcategories) %>% 
+      select(
+        product = name,
+        category, 
+        date, 
+        rating, 
+        review, 
+        polarity,
+        elaboration
+      ) %>% 
+      mutate(polarity = round(polarity, digits = 2))
+  })
+  
   output$previews <- renderPlot({
     
-    reviews_analysis()$polarity_reviews %>%
-      # analyzed$polarity_reviews %>% 
-      left_join(reviews_data, by = c('id', 'date')) %>% 
+    polarity_reviews() %>% 
       ggplot(aes(
         x = date, 
         y = polarity,
         size = elaboration,
         color = factor(rating)
       )) +
-      geom_point(alpha = .75) +
+      geom_point(alpha = .65) +
       facet_grid(category ~ .) +
       scale_y_continuous(limits = c(-1, 1)) +
       scale_size_continuous(range = c(1, 5)) +
@@ -246,26 +322,25 @@ server <- function(input, output, session) {
     
   })
   
-  output$table_reviews <- DT::renderDataTable({
-    
-    data <- reviews_analysis()$polarity_reviews %>% 
-      # analyzed$polarity_reviews %>% 
-      left_join(reviews_data, by = c('id', 'date')) %>%
-      select(
-        product = name,
-        category, 
-        date, 
-        rating, 
-        review, 
-        polarity
-      ) %>% 
-      mutate(polarity = round(polarity, digits = 2))
-    
+  brushed <- reactive({
     brushedPoints(
-      df = data, 
+      df = polarity_reviews() %>% select(-elaboration), 
       brush = input$user_selection
     )
   })
+  
+  output$table_reviews <- DT::renderDataTable({
+    brushed()
+  })
+  
+  output$download_selection <- downloadHandler(
+    filename = function() {
+      paste('AmazonNLP-brushed', Sys.Date(), '.csv', sep = '')
+    },
+    content = function(file){
+      write.csv(brushed(), file)
+    }
+  )
 }
 
 # run the application
