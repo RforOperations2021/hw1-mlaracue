@@ -13,8 +13,8 @@ analyze_reviews <- function(reviews_data, sentiments, non_words = NULL, min = 3L
   
   stop_words <- rbind(
     get_stopwords(language = "English"),
-    data.frame(word = tm::stopwords("English"),
-               lexicon = "tm"),
+    # data.frame(word = tm::stopwords("English"),
+    #            lexicon = "tm"),
     # download quanteda
     data.frame(word = quanteda::stopwords("English"),
                lexicon = "quanteda")) %>% 
