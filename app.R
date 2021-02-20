@@ -49,11 +49,14 @@ reviews_data <- reviews_data %>%
   filter(!is.na(category))
 
 # WARNING: uncomment only for testing!!
-# reviews_data <- reviews_data %>% 
+# reviews_data <- reviews_data %>%
 #   sample_n(size = 1000)
 
 # helpers for inputs
-primary_categories <- reviews_data$category %>% unique() %>% sort()
+primary_categories <- reviews_data %>% 
+  count(category, sort = TRUE) %>% 
+  filter(n > median(n)) %>% 
+  pull(category)
 
 ui <- fluidPage(
   # to add a bootstrap
@@ -100,7 +103,7 @@ ui <- fluidPage(
       textInput(
         inputId = "non_words",
         label = "Words to be excluded:", 
-        placeholder = "Insert the words that you'd like to exclude, separated by commas"
+        placeholder = "Insert the words separated by commas"
       ),
       
       # analyze button
@@ -119,12 +122,13 @@ ui <- fluidPage(
         
         tabPanel(
           title = "Analysis by Word",
-          plotOutput(outputId = "top_words")
+          plotOutput(outputId = "pwords")
         ),
         
         tabPanel(
           title = "Analysis by Review",
-          plotOutput(outputId = "polarity")
+          plotOutput(outputId = "previews", brush = 'user_selection'),
+          DT::dataTableOutput(outputId = "table_reviews")
         )
       )
     )
@@ -144,9 +148,12 @@ server <- function(input, output, session) {
     }
     
     reviews_data %>%
-      filter(year %in% input$years,
-             category %in% input$pcategories,
-             rating %in% input$stars) %>% 
+      filter(
+        year %in% input$years,
+        category %in% input$pcategories,
+        rating >= input$stars[1] & 
+          rating <= input$stars[2]
+      ) %>% 
       analyze_reviews(
         sentiments = classified,
         non_words = non_words
@@ -171,7 +178,7 @@ server <- function(input, output, session) {
     
   })
   
-  output$top_words <- renderPlot({
+  output$pwords <- renderPlot({
     
     # uncomment only for testing!!
     # analyzed <- reviews_data %>%
@@ -180,37 +187,90 @@ server <- function(input, output, session) {
     #     non_words = NULL
     #   )
     
+    data <- reviews_analysis()$polarity_words %>%
+      # analyzed$polarity_words %>%
+      mutate(class = case_when(
+        polarity > 0.5 ~ "positive",
+        polarity < 0.5 ~ "negative",
+        TRUE ~ 'neutral')
+      ) %>% 
+      group_by(class) %>% 
+      top_n(n = 5, wt = n_reviews)
+    
     n_reviews <- reviews_analysis()$n_reviews
     # n_reviews <- analyzed$n_reviews
     
-    reviews_analysis()$polarity_words %>%
-    # analyzed$polarity_words %>%
-      group_by(category, rating) %>% 
-      top_n(n = 5, wt = n_reviews) %>% 
-      ggplot(aes(
-        y = word, 
-        x = elaboration,
-        size = n_reviews,
-        color = mean_polarity
-      )) +
+    ggplot(data, 
+           aes(
+             y = word, 
+             x = elaboration,
+             size = n_reviews,
+             color = mean_polarity
+           )) +
       geom_point() +
       facet_grid(
         facets = category ~ rating, 
         scales = "free_y"
-        ) +
+      ) +
       scale_color_gradientn(
         colours = my_pal,
         breaks = c(-0.5, 0, 0.5),
         labels = c("negative","neutral","positive"),
         limits = c(-0.5, 0.5),
         name = "Overall sentiment"
-        ) +
+      ) +
       labs(x = "Elaboration\n(average number of words used in review)",
            y = "",
-           title = "Sentiment & Elaboration Analysis by Category",
-           subtitle = paste0("Total No. of Reviews: ", n_reviews)) +
+           title = "Sentiment Analysis by Rating & Category",
+           subtitle = paste0("Total No. of Reviews: ", comma(n_reviews))) +
       my_theme
     
+  })
+  
+  output$previews <- renderPlot({
+    
+    reviews_analysis()$polarity_reviews %>%
+      # analyzed$polarity_reviews %>% 
+      left_join(reviews_data, by = c('id', 'date')) %>% 
+      ggplot(aes(
+        x = date, 
+        y = polarity,
+        size = elaboration,
+        color = factor(rating)
+      )) +
+      geom_point(alpha = .75) +
+      facet_grid(category ~ .) +
+      scale_y_continuous(limits = c(-1, 1)) +
+      scale_size_continuous(range = c(1, 5)) +
+      scale_color_manual(
+        values = my_pal[c(1, 3, 5, 7, 8)], 
+        name = "rating"
+      ) +
+      labs(x = "Date", y = "Polarity") +
+      theme_minimal(base_size = 12) +
+      my_theme
+    
+  })
+  
+  output$table_reviews <- DT::renderDataTable({
+    
+    data <- reviews_analysis()$polarity_reviews %>% 
+      # analyzed$polarity_reviews %>% 
+      left_join(reviews_data, by = c('id', 'date')) %>%
+      select(
+        product = name,
+        category, 
+        date, 
+        rating, 
+        review, 
+        polarity
+      ) %>% 
+      mutate(polarity = round(polarity, digits = 2))
+    
+    brushedPoints(
+      df = data, 
+      brush = input$user_selection
+    )
   })
 }
 
