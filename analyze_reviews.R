@@ -87,11 +87,9 @@ analyze_reviews <- function(reviews_data, sentiments, non_words = NULL, min = 3L
   polarity_words <- cleaned %>%
     group_by(id) %>%
     filter(n() >= min) %>% 
-    mutate(n_words = n(),
-           polarity = sum(score) / n_words) %>%
-    group_by(category, rating, word) %>% 
-    summarise(mean_polarity = median(polarity),
-              elaboration = mean(n_words),
+    mutate(n_words = n()) %>%
+    group_by(category, rating, word, class) %>% 
+    summarise(elaboration = mean(n_words),
               n_reviews = n(),
               .groups = 'drop') %>% 
     filter(n_reviews > min)
