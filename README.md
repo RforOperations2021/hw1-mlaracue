@@ -1,4 +1,9 @@
+## Deployment
+
+The app can be found on: https://mlaracue.shinyapps.io/amazon-reviews-analyzer/
+
 ## Description
+
 The application applies Natural Language Processing -NLP- techniques to reviews published on Amazon. At its core, the app relies on the following metrics:
 
 *  **Polarity**: is a float [-1,1] where one (1) means positive statement and minus one (-1) means a negative statement. Subjective sentences generally refer to personal opinion, emotion or judgment (thus, polarity close to +1 or -1) whereas objective refers to factual information (polarity close to zero).
@@ -20,9 +25,7 @@ This visualization aims to compare the sentiment that is associated to a word (s
 #### Analysis by Review
 This visualization aims to spot, at a glance, potential patterns of polarities and elaboration of reviews over time. By hovering over the graph, users can select points and detailed information will be desplayed on the table below the graph. Besides, the app offers the possibility to download the "brushed" points into a csv file.  
 
-## Deployment
-
-The app can be found on: https://mlaracue.shinyapps.io/amazon-reviews-analyzer/## Data Sources
+## Data Sources
 
 ### Amazon Reviews
 *./data/reviews_data.csv*
