@@ -1,0 +1,15 @@
+shiny
+shinythemes
+ggplot2
+DT
+stringr
+tidyr
+dplyr
+readr
+tm
+SnowballC
+wordcloud
+tidytext
+hunspell
+scales
+quanteda
